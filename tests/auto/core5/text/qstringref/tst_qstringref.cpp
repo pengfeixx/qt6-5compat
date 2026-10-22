@@ -4,6 +4,7 @@
 
 #include <QtTest/QtTest>
 
+#include <QtCore/qanystringview.h>
 #include <qstringlist.h>
 #include <QtCore/qstringview.h>
 #include <qvariant.h>
@@ -14,10 +15,20 @@
 
 #include <type_traits>
 
+#if QT_POINTER_SIZE > 4
+// truncating qsizetype -> int can change sign:
+static_assert(int(qsizetype(1) << 31) < 0);
+#endif
+
 static_assert(std::is_convertible_v<      QStringRef  , QStringView>);
 static_assert(std::is_convertible_v<      QStringRef& , QStringView>);
 static_assert(std::is_convertible_v<const QStringRef  , QStringView>);
 static_assert(std::is_convertible_v<const QStringRef&&, QStringView>);
+
+static_assert(std::is_convertible_v<      QStringRef  , QAnyStringView>);
+static_assert(std::is_convertible_v<      QStringRef& , QAnyStringView>);
+static_assert(std::is_convertible_v<const QStringRef  , QAnyStringView>);
+static_assert(std::is_convertible_v<const QStringRef&&, QAnyStringView>);
 
 class tst_QStringRef : public QObject
 {
@@ -30,6 +41,8 @@ private slots:
     void endsWith();
     void startsWith();
     void contains();
+    void convertsToQStringView() { convertsToStringView<QStringView>(); }
+    void convertsToQAnyStringView() { convertsToStringView<QAnyStringView>(); }
     void count();
     void lastIndexOf_data();
     void lastIndexOf();
@@ -74,6 +87,10 @@ private slots:
     void split();
     void nullToString();
     void qHashFunction();
+
+private:
+    template <typename StringView>
+    void convertsToStringView() const;
 };
 
 static QStringRef emptyRef()
@@ -578,6 +595,58 @@ void tst_QStringRef::contains()
     QVERIFY(ref.contains(QStringRef(&ref2, 1, 2),Qt::CaseInsensitive));
     QVERIFY(ref.contains(QString(), Qt::CaseInsensitive));
     QVERIFY(ref.contains("", Qt::CaseInsensitive)); // apparently
+}
+
+template <typename StringView>
+void tst_QStringRef::convertsToStringView() const
+{
+    {
+        QString null;
+        QVERIFY(null.isEmpty());
+        QVERIFY(null.isNull());
+
+        QStringRef nullRef(&null);
+        QCOMPARE(nullRef.isNull(),  null.isNull());
+        QCOMPARE(nullRef.isEmpty(), null.isEmpty());
+
+        StringView nullView = nullRef;
+        QCOMPARE(nullView.isNull(),  null.isNull());
+        QCOMPARE(nullView.isEmpty(), null.isEmpty());
+
+#if !defined(Q_CC_GCC) || defined(Q_OS_QNX) // QTBUG-122797
+        if constexpr (!std::is_same_v<StringView, QAnyStringView>)
+#endif
+        {
+        StringView nullView2{nullRef};
+#ifndef QSTRINGVIEW_REFUSES_QSTRINGREF
+        QEXPECT_FAIL("", "QTBUG-122797/QTBUG-122798", Continue);
+#endif
+        QCOMPARE(nullView2.isNull(),  null.isNull());
+        QCOMPARE(nullView2.isEmpty(), null.isEmpty());
+        }
+    }
+    {
+        QString empty = "";
+        QVERIFY(empty.isEmpty());
+        QVERIFY(!empty.isNull());
+
+        QStringRef emptyRef(&empty);
+        QCOMPARE(emptyRef.isNull(),  empty.isNull());
+        QCOMPARE(emptyRef.isEmpty(), empty.isEmpty());
+
+        StringView emptyView = emptyRef;
+        QCOMPARE(emptyView.isNull(),  empty.isNull());
+        QCOMPARE(emptyView.isEmpty(), empty.isEmpty());
+
+#if !defined(Q_CC_GCC) || defined(Q_OS_QNX) // QTBUG-122797
+        if constexpr (!std::is_same_v<StringView, QAnyStringView>)
+#endif
+        {
+        StringView emptyView2{emptyRef};
+        QCOMPARE(emptyView2.isNull(),  empty.isNull());
+        QCOMPARE(emptyView2.isEmpty(), empty.isEmpty());
+        }
+    }
 }
 
 void tst_QStringRef::startsWith()
@@ -1990,6 +2059,42 @@ void tst_QStringRef::right()
 
     QCOMPARE(ref.right(-1), ref);
     QCOMPARE(ref.right(100), ref);
+
+#if QT_POINTER_SIZE != 4
+    QT_TRY {
+        QString largeString(qsizetype{std::numeric_limits<int>::max()} + 100, Qt::Uninitialized);
+
+        const qsizetype startPos = std::numeric_limits<int>::max() - 50;
+        // fill the last QChars
+        std::fill(largeString.begin() + startPos, largeString.end(), QLatin1Char('a'));
+
+        QStringRef refToLong(&largeString, startPos, 100); // ends at INT_MAX + 50
+        QCOMPARE(refToLong.position(), startPos);
+        QCOMPARE(refToLong.size(), 100);
+
+        // Ask for a subset with new position() after INT_MAX - this should fail.
+        QStringRef aboveIntMax = refToLong.right(20); // INT_MAX + 30
+        // Should return the same QStringRef
+        QCOMPARE(aboveIntMax, refToLong);
+
+        aboveIntMax = refToLong.right(0); // INT_MAX + 50
+        QCOMPARE(aboveIntMax, refToLong);
+
+        aboveIntMax = refToLong.right(49); // INT_MAX + 1
+        QCOMPARE(aboveIntMax, refToLong);
+
+        // now request a subset with new position() <= INT_MAX
+        QStringRef belowIntMax = refToLong.right(50); // INT_MAX
+        QCOMPARE(belowIntMax.position(), INT_MAX);
+        QCOMPARE(belowIntMax.size(), 50);
+
+        belowIntMax = refToLong.right(51); // INT_MAX - 1
+        QCOMPARE(belowIntMax.position(), INT_MAX - 1);
+        QCOMPARE(belowIntMax.size(), 51);
+    } QT_CATCH (const std::bad_alloc &) {
+        qDebug("Failed to allocate a QString with INT_MAX + 100 elements");
+    }
+#endif
 }
 
 void tst_QStringRef::mid()
@@ -2078,6 +2183,42 @@ void tst_QStringRef::mid()
     QVERIFY(emptyRef.mid(0).isEmpty());
     QVERIFY(emptyRef.mid(0, 3).isEmpty());
     QVERIFY(emptyRef.mid(-10, 3).isEmpty());
+
+#if QT_POINTER_SIZE != 4
+    QT_TRY {
+        QString largeString(qsizetype{std::numeric_limits<int>::max()} + 100, Qt::Uninitialized);
+
+        const qsizetype startPos = std::numeric_limits<int>::max() - 50;
+        // fill the last QChars
+        std::fill(largeString.begin() + startPos, largeString.end(), QLatin1Char('a'));
+
+        QStringRef refToLong(&largeString, startPos, 100); // ends at INT_MAX + 50
+        QCOMPARE(refToLong.position(), startPos);
+        QCOMPARE(refToLong.size(), 100);
+
+        // Ask for a subset with new position() after INT_MAX - this should fail.
+        QStringRef aboveIntMax = refToLong.mid(70, 10); // INT_MAX + 20
+        // Should return a null QStringRef
+        QCOMPARE(aboveIntMax, QStringRef());
+
+        aboveIntMax = refToLong.mid(100); // INT_MAX + 50
+        QCOMPARE(aboveIntMax, QStringRef());
+
+        aboveIntMax = refToLong.mid(51, 10); // INT_MAX + 1
+        QCOMPARE(aboveIntMax, QStringRef());
+
+        // Now ask for a subset with new position() <= INT_MAX
+        QStringRef belowIntMax = refToLong.mid(50, 10); // INT_MAX
+        QCOMPARE(belowIntMax.position(), INT_MAX);
+        QCOMPARE(belowIntMax.size(), 10);
+
+        belowIntMax = refToLong.mid(49, 10); // INT_MAX - 1
+        QCOMPARE(belowIntMax.position(), INT_MAX - 1);
+        QCOMPARE(belowIntMax.size(), 10);
+    } QT_CATCH (const std::bad_alloc &) {
+        qDebug("Failed to allocate a QString with INT_MAX + 100 elements");
+    }
+#endif
 }
 
 static bool operator ==(const QStringList &left, const QList<QStringRef> &right)

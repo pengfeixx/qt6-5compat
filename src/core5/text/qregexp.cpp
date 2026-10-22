@@ -1,5 +1,6 @@
 // Copyright (C) 2016 The Qt Company Ltd.
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
+// Qt-Security score:critical reason:data-parser
 
 #include "qregexp.h"
 
@@ -12,6 +13,7 @@
 #include "qlist.h"
 #include "qmap.h"
 #include "qmutex.h"
+#include <QtCore/qscopedvaluerollback.h>
 #include "qstring.h"
 #include "qstringlist.h"
 #include "qstringmatcher.h"
@@ -20,6 +22,7 @@
 
 #include <limits.h>
 #include <algorithm>
+#include <optional>
 
 QT_BEGIN_NAMESPACE
 
@@ -50,7 +53,7 @@ QT_BEGIN_NAMESPACE
 
     This class is deprecated in Qt 6. Please use QRegularExpression instead
     for all new code. For guidelines on porting old code from QRegExp to
-    QRegularExpression, see {Porting to QRegularExpression}
+    QRegularExpression, see \l {Porting to QRegularExpression}.
 
     A regular expression, or "regexp", is a pattern for matching
     substrings in a text. This is useful in many contexts, e.g.,
@@ -91,6 +94,20 @@ QT_BEGIN_NAMESPACE
     \note In Qt 5, the new QRegularExpression class provides a Perl
     compatible implementation of regular expressions and is recommended
     in place of QRegExp.
+
+    \section1 Security Considerations
+
+    QRegExp enforces no limit on the resources a pattern may consume, and the
+    sizing of its internal buffers can overflow. A relatively small crafted
+    pattern can therefore exhaust the available memory, overflow the stack, or
+    corrupt memory. This happens while the pattern is being compiled, that is,
+    as soon as the pattern is assigned, and does not require any text to be
+    matched. The same applies to \l{QRegExp::Wildcard}{wildcard} patterns,
+    which are internally translated into regular expressions.
+
+    Only use QRegExp with patterns from a trusted source. Prefer using
+    \l QRegularExpression instead, which limits the resources a match may
+    consume.
 
     \section1 Introduction
 
@@ -872,7 +889,7 @@ class QRegExpEngine;
 */
 struct QRegExpMatchState
 {
-    const QChar *in; // a pointer to the input string data
+    const QChar *in = nullptr; // a pointer to the input string data
     int pos; // the current position in the string
     int caretPos;
     int len; // the length of the input string
@@ -928,7 +945,6 @@ struct QRegExpAutomatonState
     QMap<int, int> reenter; // atoms reentered when transiting out
     QMap<int, int> anchors; // anchors met when transiting out
 
-    inline QRegExpAutomatonState() { }
 #ifndef QT_NO_REGEXP_CAPTURE
     inline QRegExpAutomatonState(int a, int m)
         : atom(a), match(m) { }
@@ -1043,6 +1059,7 @@ Q_DECLARE_TYPEINFO(QRegExpCharClass, Q_RELOCATABLE_TYPE);
 */
 class QRegExpEngine
 {
+    Q_DISABLE_COPY_MOVE(QRegExpEngine)
 public:
     QRegExpEngine(Qt::CaseSensitivity cs, bool greedyQuantifiers)
         : cs(cs), greedyQuantifiers(greedyQuantifiers) { setup(); }
@@ -1246,7 +1263,7 @@ private:
     int yyPos; // the position of the next character to read
     int yyLen; // the length of yyIn
     int yyCh; // the last character read
-    QScopedPointer<QRegExpCharClass> yyCharClass; // attribute for Tok_CharClass tokens
+    std::optional<QRegExpCharClass> yyCharClass; // attribute for Tok_CharClass tokens
     int yyMinRep; // attribute for Tok_Quantifier
     int yyMaxRep; // ditto
     QString yyError; // syntax error or overflow during parsing?
@@ -1392,9 +1409,8 @@ void QRegExpMatchState::match(const QChar *str0, int len0, int pos0,
     } else
 #endif
     {
-        in = str0;
-        if (in == nullptr)
-            in = &char_null;
+        Q_PRE(in == nullptr);
+        const QScopedValueRollback guard(in, str0 ? str0 : &char_null);
         pos = pos0;
         caretPos = caretIndex;
         len = len0;
@@ -3292,7 +3308,7 @@ void QRegExpEngine::startTokenizer(const QChar *rx, int len)
     yyPos = 0;
     yyLen = len;
     yyCh = getChar();
-    yyCharClass.reset(new QRegExpCharClass);
+    yyCharClass.emplace();
     yyMinRep = 0;
     yyMaxRep = 0;
     yyError = QString();
@@ -4007,10 +4023,7 @@ bool QRegExp::operator==(const QRegExp &rx) const
 */
 size_t qHash(const QRegExp &key, size_t seed) noexcept
 {
-    QtPrivate::QHashCombine hash;
-    seed = hash(seed, key.priv->engineKey);
-    seed = hash(seed, key.priv->minimal);
-    return seed;
+    return qHashMulti(seed, key.priv->engineKey, key.priv->minimal);
 }
 
 /*!

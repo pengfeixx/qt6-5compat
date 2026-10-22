@@ -9,11 +9,6 @@ Copyright: 2016-2023 The Qt Company Ltd.
            2020 Marc Mutz <marc.mutz@kdab.com>
 License: LGPL-3 or GPL-2
 
-Files: debian/*
-Copyright: 2021-2023 Patrick Franz <deltaone@debian.org>,
-           2021 Lu YaNing <dluyaning@gmail.com>
-License: LGPL-3 or GPL-2
-
 Files: src/core5/codecs/qtcore5-codecs.qdoc
        src/core5/doc/src/*.qdoc
        src/core5/qiterator.qdoc
@@ -29,7 +24,6 @@ License: GPL-3 with Qt-1.0 exception
 
 Files: src/core5/doc/snippets/*
        src/imports/graphicaleffects5/*.qml
-       src/imports/graphicaleffects5/plugin.cpp
 Copyright: 2016-2023 The Qt Company Ltd
            2016-2017 Jolla Ltd <gunnar.sletta@jollamobile.com>
 License: BSD-3-clause
@@ -44,6 +38,11 @@ License: BSD-3-clause
 Files: examples/core5/widgets/tools/codecs/doc/src/codecs.qdoc
 Copyright: 2016 The Qt Company Ltd.
 License: GFDL-NIV-1.3
+
+Files: debian/*
+Copyright: 2021-2026 Patrick Franz <deltaone@debian.org>,
+           2021 Lu YaNing <dluyaning@gmail.com>
+License: LGPL-3 or GPL-2
 
 License: LGPL-3
  This program is free software: you can redistribute it and/or modify

@@ -1,9 +1,0 @@
-qtextcodec-avoid-read-past-buffer-in-codecforname.patch
-CVE-2026-101201_qbinaryjson-prevent-oob-read-frombinarydata.patch
-CVE-2026-101201_qbinaryjson-compare-in-size-t.patch
-CVE-2026-97845_qxmlsimplereader-extract-unwind-parse-stack.patch
-CVE-2026-100140_sax-use-ranged-for-loops.patch
-CVE-2026-100140_sax-port-internal-implementation-to-qsizetype.patch
-CVE-2026-100140_sax-avoid-integer-truncation-line-column.patch
-CVE-2026-100140_qxmlattributes-limit-int-max-attributes.patch
-CVE-2026-103645_qtextcodec-fix-icu-overflow-infinite-loop.patch

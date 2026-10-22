@@ -24,7 +24,6 @@ usr/lib/${DEB_HOST_MULTIARCH}/qt6/qml/Qt5Compat/GraphicalEffects/RecursiveBlur.q
 usr/lib/${DEB_HOST_MULTIARCH}/qt6/qml/Qt5Compat/GraphicalEffects/ThresholdMask.qml
 usr/lib/${DEB_HOST_MULTIARCH}/qt6/qml/Qt5Compat/GraphicalEffects/ZoomBlur.qml
 usr/lib/${DEB_HOST_MULTIARCH}/qt6/qml/Qt5Compat/GraphicalEffects/libqtgraphicaleffectsplugin.so
-usr/lib/${DEB_HOST_MULTIARCH}/qt6/qml/Qt5Compat/GraphicalEffects/plugins.qmltypes
 usr/lib/${DEB_HOST_MULTIARCH}/qt6/qml/Qt5Compat/GraphicalEffects/private/DropShadowBase.qml
 usr/lib/${DEB_HOST_MULTIARCH}/qt6/qml/Qt5Compat/GraphicalEffects/private/FastGlow.qml
 usr/lib/${DEB_HOST_MULTIARCH}/qt6/qml/Qt5Compat/GraphicalEffects/private/FastInnerShadow.qml
@@ -36,3 +35,4 @@ usr/lib/${DEB_HOST_MULTIARCH}/qt6/qml/Qt5Compat/GraphicalEffects/private/libqtgr
 usr/lib/${DEB_HOST_MULTIARCH}/qt6/qml/Qt5Compat/GraphicalEffects/private/plugins.qmltypes
 usr/lib/${DEB_HOST_MULTIARCH}/qt6/qml/Qt5Compat/GraphicalEffects/private/qmldir
 usr/lib/${DEB_HOST_MULTIARCH}/qt6/qml/Qt5Compat/GraphicalEffects/qmldir
+usr/lib/${DEB_HOST_MULTIARCH}/qt6/qml/Qt5Compat/GraphicalEffects/qtgraphicaleffectsplugin.qmltypes
